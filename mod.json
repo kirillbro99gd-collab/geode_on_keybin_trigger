@@ -1,14 +1,20 @@
 {
-	"geode": "$GEODE_VERSION",
-	"gd": {
-		"win": "2.2074",
-		"android": "2.2074",
-		"mac": "2.2074",
-		"ios": "2.2074"
-	},
-	"id": "$MOD_ID",
-	"name": "$MOD_NAME",
-	"version": "$MOD_VERSION",
-	"developer": "$MOD_DEVELOPER",
-	"description": "$MOD_DESCRIPTION"
-}
+  "geode": "v2.0.0-beta.26",
+  "gd": {
+    "win": "2.2074",
+    "android": "2.2074",
+    "mac": "2.2074",
+    "ios": "2.2074"
+  },
+  "id": "kirillbro99.on-keybind-trigger",
+  "name": "OnKeybind Trigger Mod",
+  "version": "v1.0.0",
+  "developer": "Kirillbro99",
+  "description": "Добавляет в редактор новый триггер, который срабатывает по нажатию клавиши.",
+  "dependencies": [
+  {
+    "id": "geode.custom-keybinds",
+    "version": ">=1.1.0",
+    "importance": "required"
+  }
+  ]
