@@ -8,18 +8,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Geode SDK
         uses: geode-sdk/setup-geode@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Build Mod
         run: geode build
 
-      - name: Upload Build Artifact
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-android
+          name: ${{ github.event.repository.name }}-build
           path: |
-            build/*.geode
+            build/Release/*.geode
             *.geode
