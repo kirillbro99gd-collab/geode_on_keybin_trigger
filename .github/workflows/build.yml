@@ -1,26 +1,34 @@
-name: Geode Build
+name: Build and Release
 
 on: [push, pull_request]
 
 jobs:
   build:
+    # Указываем, на какой системе собирать мод
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Скачиваем исходный код вашего мода
       - uses: actions/checkout@v4
 
-      - name: Setup Geode SDK
+      # 2. Устанавливаем и настраиваем Geode SDK
+      - name: Setup Geode
         uses: geode-sdk/setup-geode@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Указываем версию Geode CLI, которую нужно использовать
+          cli: 'latest'
+          # Указываем версию Geode SDK
+          sdk: 'latest'
 
+      # 3. Собираем мод
       - name: Build Mod
-        run: geode build
+        run: geode build -p android
 
-      - name: Upload Build Artifacts
+      # 4. Загружаем готовый файл как артефакт
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-build
+          name: on-keybind-trigger-android
           path: |
-            build/Release/*.geode
             *.geode
+            build/Release/*.geode
