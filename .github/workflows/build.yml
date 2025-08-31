@@ -7,35 +7,17 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Geode
-        uses: geode-sdk/setup-geode@v1
-        with:
-          sdk: latest
-          
-      - name: Build
-        run: geode build
-        
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: on-keybind-trigger-windows
-          path: |
-            *.geode
-            build/Release/*.geode
-
   build-android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Geode
-        uses: geode-sdk/setup-geode@v1
+        # Используем прямую ссылку на коммит вместо @v1
+        uses: geode-sdk/setup-geode@43f350542373245b3c4377a0c7b3f947b14c330a 
         with:
           sdk: latest
-      
+
       - name: Build
         run: geode build -p android
 
