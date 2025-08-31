@@ -1,9 +1,9 @@
-// src/OnKeybindTrigger.cpp
 #include "OnKeybindTrigger.hpp"
-#include <Geode/ui/BasedButton.hpp>
+#include "KeybindSelectPopup.hpp"
 #include <Geode/ui/TextInput.hpp>
-#include <Geode/ui/ToggleButton.hpp>
-#include "KeybindSelectPopup.hpp" // Мы создадим этот файл далее
+#include <Geode/ui/BasedButton.hpp>
+
+// --- Реализация самого триггера ---
 
 OnKeybindTrigger* OnKeybindTrigger::create() {
     auto ret = new OnKeybindTrigger();
@@ -16,40 +16,47 @@ OnKeybindTrigger* OnKeybindTrigger::create() {
 }
 
 bool OnKeybindTrigger::init() {
-    if (!EffectGameObject::init(3005)) { // 3005 - это временный ID объекта
-        return false;
-    }
-    this->setObjectSprite(CCSprite::createWithSpriteFrameName("GJ_button_01.png")); // Ставим иконку
+    // 3005 - это уникальный ID нашего объекта, который мы указали в main.cpp
+    if (!EffectGameObject::init(3005)) return false;
+    
+    // Устанавливаем иконку по умолчанию
+    this->setObjectSprite(CCSprite::createWithSpriteFrameName("GJ_button_01.png"));
+    
+    // Задаём значения по умолчанию для нового триггера
+    m_targetGroupID = 0;
+    m_keyCode = KEY_None;
+    m_useCondition = false;
+    m_conditionItemID = 0;
+    
     return true;
 }
 
-// --- Сохранение и загрузка кастомных настроек ---
-
+// Загружаем кастомные данные из строки сохранения уровня
 void OnKeybindTrigger::customObjectSetup(std::vector<std::string>& fields, std::vector<void*>&) {
-    // Загружаем данные из строки сохранения уровня
+    // Geode автоматически разбивает строку сохранения по запятым
     m_targetGroupID = std::stoi(fields[1]);
     m_keyCode = static_cast<cocos2d::enumKeyCodes>(std::stoi(fields[2]));
     m_useCondition = fields[3] == "1";
     m_conditionItemID = std::stoi(fields[4]);
 
-    // Важно для EffectGameObject
-    this->m_targetGroupID = m_targetGroupID; 
+    // Это стандартное поле тоже нужно обновить
+    this->m_targetGroupID = m_targetGroupID;
 }
 
+// Превращаем наши настройки в строку для сохранения в данных уровня
 std::string OnKeybindTrigger::getSaveString(GJBaseGameLayer*) {
-    // Сохраняем наши кастомные данные в строку уровня
     return std::to_string(m_targetGroupID) + "," +
            std::to_string(static_cast<int>(m_keyCode)) + "," +
            (m_useCondition ? "1" : "0") + "," +
            std::to_string(m_conditionItemID);
 }
 
-// --- Создание меню настроек ---
+
+// --- Класс для всплывающего окна настроек ---
 
 class OnKeybindPopup : public SetupTriggerPopup {
 public: 
     OnKeybindTrigger* m_trigger;
-    TextInput* m_keyLabel;
 
     bool init(OnKeybindTrigger* trigger, std::vector<GameObject*> const& targets) {
         if (!SetupTriggerPopup::init(trigger, targets)) return false;
@@ -58,31 +65,29 @@ public:
         this->setTitle("OnKeybind Settings");
 
         // Поле для ввода Group ID
-        this->m_fields->addChild(TextAlertPopup::create("Target Group ID", 0.5f, 120.f, "Target Group ID"));
         auto groupInput = TextInput::create(100.f, "ID");
         groupInput->setString(std::to_string(m_trigger->m_targetGroupID));
         groupInput->setFilter("0123456789");
         groupInput->setID("group-id-input");
-        this->m_fields->addChild(groupInput);
+        this->addInput("Target GID", groupInput);
 
         // Кнопка для выбора клавиши
-        this->m_fields->addChild(TextAlertPopup::create("Key", 0.5f, 120.f, "Key to press"));
         auto keyButton = Button::create(keybindToString(m_trigger->m_keyCode), [this](auto) {
             KeybindSelectPopup::create([this](cocos2d::enumKeyCodes key) {
-                // Когда клавиша выбрана в попапе, обновляем её
                 m_trigger->m_keyCode = key;
-                static_cast<Button*>(this->m_fields->getChildByID("key-select-button"))->setLabel(keybindToString(key));
+                if(auto btn = this->m_mainLayer->getChildByIDRecursive("key-select-button")){
+                   static_cast<Button*>(btn)->setLabel(keybindToString(key));
+                }
             })->show();
         });
         keyButton->setID("key-select-button");
-        this->m_fields->addChild(keyButton);
+        this->addInput("Key", keyButton);
 
         // Чекбокс для условия
         auto conditionToggle = CCMenuItemToggler::createWithStandardSprites(
             this, menu_selector(OnKeybindPopup::onToggleCondition), m_trigger->m_useCondition);
         conditionToggle->setID("use-condition-toggle");
-        this->m_fields->addChild(CCMenu::createWithItem(conditionToggle));
-        this->m_fields->addChild(TextAlertPopup::create("Use Condition", 0.5f, 120.f, "Activate only if condition is met"));
+        this->addInput("Use Cond.", CCMenu::createWithItem(conditionToggle), "Activate only if condition is met");
 
         // Поле для Item ID (условия)
         auto itemInput = TextInput::create(100.f, "Item ID");
@@ -90,28 +95,33 @@ public:
         itemInput->setFilter("0123456789");
         itemInput->setID("item-id-input");
         itemInput->setVisible(m_trigger->m_useCondition);
-        this->m_fields->addChild(itemInput);
-
+        this->addInput("Item ID", itemInput);
+        
+        this->updateLayout();
         return true;
     }
 
     void onToggleCondition(CCObject* sender) {
         bool enabled = !static_cast<CCMenuItemToggler*>(sender)->isToggled();
-        m_trigger->m_useCondition = enabled;
-        if (auto input = this->m_fields->getChildByID("item-id-input")) {
-            input->setVisible(enabled);
+        if (auto input = this->m_mainLayer->getChildByIDRecursive("item-id-input")) {
+            // Прячем или показываем поле ввода Item ID
+            static_cast<CCNode*>(input->getParent())->setVisible(enabled);
+            this->updateLayout();
         }
     }
 
-    void onToggled(CCObject*) override { /* ... */ }
-
     void onClose(CCObject* sender) override {
-        // Сохраняем значения из полей ввода перед закрытием
-        auto groupInput = static_cast<TextInput*>(this->m_fields->getChildByID("group-id-input"));
-        auto itemInput = static_cast<TextInput*>(this->m_fields->getChildByID("item-id-input"));
+        // Сохраняем значения из полей ввода в переменные триггера перед закрытием
+        auto groupInput = static_cast<TextInput*>(this->m_mainLayer->getChildByIDRecursive("group-id-input"));
+        auto itemInput = static_cast<TextInput*>(this->m_mainLayer->getChildByIDRecursive("item-id-input"));
+        auto toggle = static_cast<CCMenuItemToggler*>(this->m_mainLayer->getChildByIDRecursive("use-condition-toggle")->getChildren()->objectAtIndex(0));
+
+        m_trigger->m_targetGroupID = valueOrDefault<int>(groupInput->getString(), 0);
+        m_trigger->m_conditionItemID = valueOrDefault<int>(itemInput->getString(), 0);
+        m_trigger->m_useCondition = toggle->isToggled();
         
-        m_trigger->m_targetGroupID = atoi(groupInput->getString().c_str());
-        m_trigger->m_conditionItemID = atoi(itemInput->getString().c_str());
+        // Это поле тоже обновляем
+        m_trigger->m_targetGroupID = m_trigger->m_targetGroupID;
 
         SetupTriggerPopup::onClose(sender);
     }
@@ -127,6 +137,7 @@ public:
     }
 };
 
+// Эта функция вызывается, когда пользователь нажимает "Edit Object"
 void OnKeybindTrigger::buildSetup(GameObject*, std::vector<GameObject*>* targets) {
     OnKeybindPopup::create(this, *targets)->show();
 }
