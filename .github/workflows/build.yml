@@ -1,0 +1,25 @@
+name: Geode Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Geode SDK
+        uses: geode-sdk/setup-geode@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build Mod
+        run: geode build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-android
+          path: |
+            build/*.geode
+            *.geode
